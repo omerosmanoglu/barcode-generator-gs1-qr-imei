@@ -132,8 +132,8 @@ TODO.txt                   Geliştirme notları
 
 * Vue.js
 * Bootstrap 5
-* JsBarcode
-* QRCode.js
+* JsBarcode https://lindell.me/JsBarcode/ (https://github.com/lindell/JsBarcode)
+* QRCode.js https://github.com/jeromeetienne/jquery-qrcode
 * JSZip
 * FileSaver.js
 * html-to-image
@@ -178,10 +178,6 @@ gibi konular anlatılmaktadır.
 MIT License
 
 ## 📜 TODO
-
-[•] Kullanılan Kütüphaneler:
-	- Barkod:	https://lindell.me/JsBarcode/ (https://github.com/lindell/JsBarcode)
-	- QRCode: 	https://github.com/jeromeetienne/jquery-qrcode
 	
 [•] Klavuzlar
 	- GTIN - UDI: - https://utsuygulama.saglik.gov.tr/UTS/vatandas#/vatTibbiCihazListele

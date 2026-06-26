@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="tr" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barkod Oluşturucu</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    
+    <!-- Custom CSS -->
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app" v-cloak>
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow">
+            <div class="container-fluid">
+                <span class="navbar-brand mb-0 h1">
+                    🔴 Barkod Oluşturucu
+                </span>
+                <div class="d-flex gap-2 align-items-center">
+                    <select v-model="selectedTemplateId" class="form-select form-select-sm" style="width: 200px;" title="Kayıtlı Şablonlar">
+                        <option value="">Şablon Seç...</option>
+                        <option v-for="template in savedTemplates" :key="template.id" :value="template.id">
+                            {{ template.name }}
+                        </option>
+                    </select>
+                    <button class="btn btn-outline-danger btn-sm" @click="deleteTemplate" :disabled="!selectedTemplateId" title="Şablonu Sil">
+                        🗑️
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" @click="openSaveTemplateModal" title="Şablon Kaydet">
+                        💾 Şablon Kaydet
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" onclick="window.location.reload()" title="Sayfayı Yenile">
+                        🔄
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" @click="toggleTheme">
+                        {{ isDarkMode ? '☀️' : '🌙' }}
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container-fluid py-4">
+            <div class="row g-4">
+                <!-- Left Sidebar - Barkod Tipi Seçimi -->
+                <div class="col-lg-3">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">⚙️ Barkod Tipi</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" value="ean13" 
+                                       v-model="barcodeType" id="typeEan13">
+                                <label class="form-check-label" for="typeEan13">
+                                    <strong>EAN-13</strong>
+                                    <small class="d-block text-muted">Ürün barkodu (12 veya 13 hane)</small>
+                                </label>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" value="code128" 
+                                       v-model="barcodeType" id="typeCode128">
+                                <label class="form-check-label" for="typeCode128">
+                                    <strong>Code128</strong>
+                                    <small class="d-block text-muted">Serbest metin</small>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" value="qrcode" 
+                                       v-model="barcodeType" id="typeQR">
+                                <label class="form-check-label" for="typeQR">
+                                    <strong>QR Code</strong>
+                                    <small class="d-block text-muted">2D Barkod</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export Ayarları -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">💾 Export Ayarları</h6>
+                        </div>
+                        <div class="card-body">
+                            <label class="form-label">Format</label>
+                            <select class="form-select mb-3" v-model="exportFormat">
+                                <option value="svg">SVG (Vektörel)</option>
+                                <option value="png">PNG (Raster)</option>
+                            </select>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" v-model="displayValue" id="displayValueSwitch">
+                                <label class="form-check-label" for="displayValueSwitch">
+                                    <strong>Barkod Verisi Göster</strong>
+                                    <small class="d-block text-muted">Altında okunabilir metin</small>
+                                </label>
+                            </div>
+                            
+                            <label class="form-label">Barkod Kalınlık (Genişlik) <strong>{{ barcodeWidth }}</strong></label>
+                            <input type="range" class="form-range mb-2" v-model.number="barcodeWidth" min="1" max="10" step="0.5">
+                            
+                            <label class="form-label">Barkod Yükseklik: <strong>{{ barcodeHeight }}px</strong></label>
+                            <input type="range" class="form-range mb-2" v-model.number="barcodeHeight" min="50" max="300" step="10">
+                            
+                            <label class="form-label">QR Barkod Boyut: <strong>{{ qrCodeSize }}px</strong></label>
+                            <input type="range" class="form-range mb-2" v-model.number="qrCodeSize" min="100" max="500" step="50">
+                        </div>
+                    </div>
+
+
+
+                </div>
+
+                <!-- Center - Veri Girişi -->
+                <div class="col-lg-5">
+                    <!-- Manuel Giriş -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">🖋️ Veri Girişi</h5>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-light btn-sm" @click="openAutoGenModal" title="Otomatik Oluştur">
+                                    🪄 
+                                </button>
+                                <button class="btn btn-light btn-sm" @click="clearInput" title="Temizle">
+                                    🗑️
+                                </button>
+                                <button class="btn btn-light btn-sm" @click="selectAll" title="Tümünü Seç">
+                                    ✅
+                                </button>
+                                <button class="btn btn-light btn-sm" @click="copyInput" title="Kopyala">
+                                    📋
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <textarea 
+                                class="form-control font-monospace" 
+                                v-model="inputText" 
+                                rows="12"
+                                ref="textareaRef"
+                                :placeholder="getPlaceholder()"></textarea>
+                            <div class="textarea-counter mt-2">
+                                {{ lineCount }} satır, {{ charCount }} karakter. Her satır 1 barkod temsil eder
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- QR Şablonları (Sadece QR Code seçiliyken) -->
+                    <div class="card shadow-sm" v-show="barcodeType === 'qrcode'">
+                        <div class="card-header bg-purple text-white">
+                            <h6 class="mb-0">📱  Hazır QR Şablonları</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('url')">
+                                        🌐 URL
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('vcard')">
+                                        🧾 VCard
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('sms')">
+                                        💬 SMS
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('phone')">
+                                        📞 Telefon
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('location')">
+                                        📍 Konum
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('calendar')">
+                                        📅 Takvim
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('email')">
+                                        📧 E-Posta
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('wifi')">
+                                        📶 WiFi
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('whatsapp')">
+                                        💬 WhatsApp
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-danger btn-sm w-100" @click="openQRTemplate('gtin')">
+                                        💉 GTIN/UDI
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-success btn-sm w-100" @click="openQRTemplate('food')">
+                                        🍔 Gıda
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-info btn-sm w-100" @click="openQRTemplate('logistics')">
+                                        🚚 Lojistik
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-info btn-sm w-100" @click="openQRTemplate('agriculture')">
+                                        🥬 Tarım
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-primary btn-sm w-100" @click="openQRTemplate('textile')">
+                                        👕 Tekstil
+                                    </button>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <button class="btn btn-outline-warning btn-sm w-100" @click="openQRTemplate('imei')">
+                                        📱 IMEI
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right - Önizleme -->
+                <div class="col-lg-4">
+                    <div class="card shadow-sm  ">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">👁️ Canlı Önizleme</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid mb-3">
+                                <button class="btn btn-primary btn-lg" @click="generateBarcodes" :disabled="!inputText.trim()">
+                                    ⚡ Barkodları Oluştur
+                                </button>
+                            </div>
+                            <div class="barcode-preview" id="previewContainer">
+                                <div v-if="!previewData" class="text-center text-muted">
+                                    🌍
+                                    <p class="mt-2">Veri girin, önizleme otomatik oluşacak</p>
+                                </div>
+                                <div v-else>
+                                    <svg v-if="barcodeType !== 'qrcode'" id="previewBarcode"></svg>
+                                    <div v-else id="qrPreview"></div>
+                                </div>
+                            </div>
+                            <div class="text-center mt-2 text-muted" v-if="firstLine">
+                                <small>ℹ️ İlk satır: {{ firstLine.substring(0, 30) }}{{ firstLine.length > 30 ? '...' : '' }}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- İstatistikler -->
+                    <div class="card stats-card shadow-sm mt-4">
+                        <div class="card-body">
+                            <h6 class="mb-3">📊 İstatistikler</h6>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Satır Sayısı:</span>
+                                <strong>{{ lineCount }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Karakter:</span>
+                                <strong>{{ charCount }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Barkod Sayısı:</span>
+                                <strong>{{ generatedBarcodes.length }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+
+
+
+            </div>
+        </div>
+
+        <!-- Otomatik Oluşturucu Modal -->
+        <div class="modal fade" ref="autoGenModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title">✨ Otomatik Barkod Oluşturucu</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Başlangıç Karakter (Prefix)</label>
+                                <input type="text" class="form-control" v-model="autoGen.prefix" 
+                                       placeholder="örn: 869">
+                                <small class="text-muted">Kodun başına eklenecek sabit metin</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Bitiş Karakter (Suffix)</label>
+                                <input type="text" class="form-control" v-model="autoGen.suffix" 
+                                       placeholder="örn: 10">
+                                <small class="text-muted">Kodun sonuna eklenecek sabit metin</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Başlangıç No</label>
+                                <input type="number" class="form-control" v-model.number="autoGen.startNum">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Bitiş No</label>
+                                <input type="number" class="form-control" v-model.number="autoGen.endNum">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Artış</label>
+                                <input type="number" class="form-control" v-model.number="autoGen.increment">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Maske ($ = rakam)</label>
+                                <input type="text" class="form-control font-monospace" 
+                                       v-model="autoGen.mask" 
+                                       placeholder="örn: $$$$$$$">
+                                <small class="text-muted">Örnek: $$$$$$$ → 0000010, 0000011, 0000012...</small>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert" :class="autoGenWarning ? 'alert-danger' : 'alert-info'" role="alert">
+                                    <div v-if="autoGenWarning" class="mb-2">
+                                        <strong>{{ autoGenWarning }}</strong>
+                                    </div>
+                                    <div v-else>
+                                        <strong>ℹ️ Barkod Bilgisi:</strong><br>
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-6">
+                                                <small>
+                                                    📏 <strong>Karakter Uzunlukları:</strong><br>
+                                                    &nbsp;&nbsp;• Başlangıç: <code>{{ autoGenPrefixLength }}</code> karakter<br>
+                                                    &nbsp;&nbsp;• Maske: <code>{{ autoGenMaskLength }}</code> karakter 
+                                                    <span v-if="autoGenMaskSpecialCount > 0">
+                                                        (<code>{{ autoGenMaskSpecialCount }}</code> özel, <code>{{ autoGenMaskDollarCount }}</code> numara)
+                                                    </span>
+                                                    <span v-else-if="autoGenMaskDollarCount > 0">
+                                                        (<code>{{ autoGenMaskDollarCount }}</code> numara)
+                                                    </span>
+                                                    <br>
+                                                    &nbsp;&nbsp;• Bitiş: <code>{{ autoGenSuffixLength }}</code> karakter<br>
+                                                    &nbsp;&nbsp;• <strong>Toplam: {{ autoGenTotalLength }} karakter</strong>
+                                                </small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <small>
+                                                    🔢 <strong>Üretim Bilgisi:</strong><br>
+                                                    &nbsp;&nbsp;• Başlangıç No: <code>{{ autoGen.startNum }}</code><br>
+                                                    &nbsp;&nbsp;• Bitiş No: <code>{{ autoGen.endNum }}</code><br>
+                                                    &nbsp;&nbsp;• Artış: <code>{{ autoGen.increment }}</code><br>
+                                                    &nbsp;&nbsp;• <strong>Oluşacak Barkod: {{ autoGenBarcodeCount }} adet</strong>
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌  İptal
+                        </button>
+                        <button type="button" class="btn btn-warning" @click="generateAuto">
+                            ⚡ Oluştur
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Oluşturulan Barkodlar Modal -->
+        <div class="modal fade" ref="barcodesModalEl" tabindex="-1">
+            <div class="modal-dialog modal-xl-custom modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title">
+                            🗂️  Oluşturulan Barkodlar ({{ generatedBarcodes.length }})
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body barcode-grid" id="barcode-grid">
+                        <div class="row g-3" :class="'row-cols-' + printColumns">
+                            <template v-for="(barcode, index) in generatedBarcodes" :key="index">
+                                <div class="col">
+                                    <div class="barcode-item text-center">
+                                        <div :id="'barcode-' + index" class="mb-2"></div>
+                                        <small class="text-muted d-block barkod-text" :class="{ 'd-none': !showBarcodeText }">{{ barcode.displayText }}</small>
+                                    </div>
+                                </div>
+                                <div class="print-page-break" v-if="shouldAddPageBreak(index)">&nbsp;</div>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <label class="form-label mb-0">Yanyana:</label>
+                            <select v-model.number="printColumns" class="form-select form-select-sm" style="width: 70px;">
+                                <option :value="1">1</option>
+                                <option :value="2">2</option>
+                                <option :value="3">3</option>
+                                <option :value="4">4</option>
+                                <option :value="5">5</option>
+                                <option :value="6">6</option>
+                                <option :value="7">7</option>
+                                <option :value="8">8</option>
+                                <option :value="9">9</option>
+                                <option :value="10">10</option>
+                                <option :value="11">11</option>
+                                <option :value="12">12</option>
+                            </select>
+                            
+                            <label class="form-label mb-0 ms-2">Sayfa Başına:</label>
+                            <select v-model.number="barcodesPerPage" class="form-select form-select-sm" style="width: 75px;">
+                                <option :value="1">1</option>
+                                <option :value="2">2</option>
+                                <option :value="3">3</option>
+                                <option :value="4">4</option>
+                                <option :value="5">5</option>
+                                <option :value="6">6</option>
+                                <option :value="7">7</option>
+                                <option :value="8">8</option>
+                                <option :value="9">9</option>
+                                <option :value="10">10</option>
+                                <option :value="12">12</option>
+                                <option :value="15">15</option>
+                                <option :value="18">18</option>
+                                <option :value="20">20</option>
+                                <option :value="24">24</option>
+                                <option :value="30">30</option>
+                                <option :value="40">40</option>
+                                <option :value="50">50</option>
+                            </select>
+                            
+                            <label class="form-label mb-0 ms-2">Etiket Arası:</label>
+                            <input type="number" v-model.number="labelSpacing" class="form-control form-control-sm" 
+                                   style="width: 70px;" min="0" max="50" placeholder="0">
+                            <small class="text-muted">px</small>
+                            
+                            <label class="form-label mb-0 ms-2">Satır Arası:</label>
+                            <input type="number" v-model.number="lineSpacing" class="form-control form-control-sm" 
+                                   style="width: 70px;" min="0" max="50" placeholder="0">
+                            <small class="text-muted">px</small>
+                            
+                            <div class="form-check form-switch ms-3">
+                                <input class="form-check-input" type="checkbox" v-model="showBarcodeText" id="showTextSwitch">
+                                <label class="form-check-label" for="showTextSwitch">
+                                    Text'i Göster
+                                </label>
+                            </div>
+                            
+                            <button type="button" class="btn btn-info btn-sm ms-2" @click="openPageSettingsModal" title="Sayfa Ayarları">
+                                📑 Sayfa Ayarı
+                            </button>
+                            
+                            <button type="button" class="btn btn-primary btn-sm" @click="printBarcodes">
+                                🖨️ Yazdır
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-success btn-sm" @click="downloadZip">
+                            🗜️  ZIP Olarak İndir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Template Modals -->
+        
+        <!-- URL QR Modal -->
+        <div class="modal fade" ref="urlModalEl" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">🌐 URL QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Website Adresi *</label>
+                            <input type="url" class="form-control" v-model="qrTemplates.url.website" 
+                                   placeholder="https://example.com" required ref="urlInputEl">
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="urlClear">
+                            <label class="form-check-label" for="urlClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('url')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VCard QR Modal -->
+        <div class="modal fade" ref="vcardModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">👤 VCard QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Ad *</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.vcard.firstName" ref="vcardInputEl">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Soyad</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.vcard.lastName">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Firma</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.vcard.organization">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Ünvan</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.vcard.title">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Cep Telefonu</label>
+                                <input type="tel" class="form-control" v-model="qrTemplates.vcard.mobile" placeholder="+90 533 001 02 11">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">İş Telefonu</label>
+                                <input type="tel" class="form-control" v-model="qrTemplates.vcard.workPhone" placeholder="+90 312 123 45 67">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Kişisel Email</label>
+                                <input type="email" class="form-control" v-model="qrTemplates.vcard.personalEmail">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">İş Email</label>
+                                <input type="email" class="form-control" v-model="qrTemplates.vcard.workEmail">
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Website</label>
+                                <input type="url" class="form-control" v-model="qrTemplates.vcard.website" placeholder="https://example.com">
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Adres</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.vcard.address">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Şehir</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.vcard.city">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Ülke</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.vcard.country">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Posta Kodu</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.vcard.postalCode">
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="vcardClear">
+                            <label class="form-check-label" for="vcardClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('vcard')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SMS QR Modal -->
+        <div class="modal fade" ref="smsModalEl" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">💬 SMS QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-4">
+                                <label class="form-label">Ülke Kodu</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.sms.countryCode" placeholder="+90" ref="smsInputEl">
+                            </div>
+                            <div class="col-8">
+                                <label class="form-label">Telefon *</label>
+                                <input type="tel" class="form-control" v-model="qrTemplates.sms.phone" placeholder="533 001 02 11">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Mesaj</label>
+                                <textarea class="form-control" v-model="qrTemplates.sms.message" rows="3" placeholder="Mesajınız..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="smsClear">
+                            <label class="form-check-label" for="smsClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('sms')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phone QR Modal -->
+        <div class="modal fade" ref="phoneModalEl" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">📞 Telefon Arama QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-4">
+                                <label class="form-label">Ülke Kodu</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.phone.countryCode" placeholder="+90" ref="phoneInputEl">
+                            </div>
+                            <div class="col-8">
+                                <label class="form-label">Telefon *</label>
+                                <input type="tel" class="form-control" v-model="qrTemplates.phone.phone" placeholder="533 001 02 11">
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="phoneClear">
+                            <label class="form-check-label" for="phoneClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('phone')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Location QR Modal -->
+        <div class="modal fade" ref="locationModalEl" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">📍 Konum QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label">Enlem (Latitude) *</label>
+                                <input type="number" step="any" class="form-control" v-model="qrTemplates.location.latitude" 
+                                       placeholder="41.376625" ref="locationInputEl">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Boylam (Longitude) *</label>
+                                <input type="number" step="any" class="form-control" v-model="qrTemplates.location.longitude" 
+                                       placeholder="33.776497">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Konum Adı</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.location.name" 
+                                       placeholder="37 Bilişim Teknolojileri">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" v-model="qrTemplates.location.useGoogleMaps" id="useGoogleMaps">
+                                    <label class="form-check-label" for="useGoogleMaps">
+                                        Google Maps Linki Kullan
+                                    </label>
+                                </div>
+                                <small class="text-muted">Kapalı ise: geo: formatı kullanılır</small>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="locationClear">
+                            <label class="form-check-label" for="locationClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('location')" :disabled="qrTemplates.location.useGoogleMaps ? !(qrTemplates.location.name || (qrTemplates.location.latitude && qrTemplates.location.longitude)) : !(qrTemplates.location.latitude && qrTemplates.location.longitude)">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar QR Modal -->
+        <div class="modal fade" ref="calendarModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">📅 Takvim QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Etkinlik Başlığı *</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.calendar.title" 
+                                       placeholder="Toplantı" ref="calendarInputEl">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Açıklama</label>
+                                <textarea class="form-control" v-model="qrTemplates.calendar.description" rows="2"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Konum</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.calendar.location" 
+                                       placeholder="Ankara Ofis">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Başlangıç Tarihi *</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.calendar.startDate">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Başlangıç Saati</label>
+                                <input type="time" class="form-control" v-model="qrTemplates.calendar.startTime">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Bitiş Tarihi</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.calendar.endDate">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Bitiş Saati</label>
+                                <input type="time" class="form-control" v-model="qrTemplates.calendar.endTime">
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="calendarClear">
+                            <label class="form-check-label" for="calendarClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('calendar')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email QR Modal -->
+        <div class="modal fade" ref="emailModalEl" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">✉️ E-Posta QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">E-Posta Adresi *</label>
+                                <input type="email" class="form-control" v-model="qrTemplates.email.email" 
+                                       placeholder="info@example.com" ref="emailInputEl">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Konu</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.email.subject" 
+                                       placeholder="Teklif Talebi">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Mesaj</label>
+                                <textarea class="form-control" v-model="qrTemplates.email.body" rows="3" 
+                                          placeholder="Merhaba..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="emailClear">
+                            <label class="form-check-label" for="emailClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('email')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WiFi QR Modal -->
+        <div class="modal fade" ref="wifiModalEl" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">📶 WiFi QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Şifreleme Türü</label>
+                                <select class="form-select" v-model="qrTemplates.wifi.encryption" ref="wifiInputEl">
+                                    <option value="WPA">WPA/WPA2</option>
+                                    <option value="WEP">WEP</option>
+                                    <option value="nopass">Şifresiz</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Ağ Adı (SSID) *</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.wifi.ssid" 
+                                       placeholder="QPORTAL_WIFI">
+                            </div>
+                            <div class="col-12" v-show="qrTemplates.wifi.encryption !== 'nopass'">
+                                <label class="form-label">Şifre *</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.wifi.password" 
+                                       placeholder="********">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" v-model="qrTemplates.wifi.hidden" id="wifiHidden">
+                                    <label class="form-check-label" for="wifiHidden">
+                                        Gizli Ağ
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="wifiClear">
+                            <label class="form-check-label" for="wifiClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('wifi')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WhatsApp QR Modal -->
+        <div class="modal fade" ref="whatsappModalEl" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">💬 WhatsApp QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-4">
+                                <label class="form-label">Ülke Kodu</label>
+                                <input type="text" class="form-control" v-model="qrTemplates.whatsapp.countryCode" 
+                                       placeholder="+90" ref="whatsappInputEl">
+                            </div>
+                            <div class="col-8">
+                                <label class="form-label">Telefon *</label>
+                                <input type="tel" class="form-control" v-model="qrTemplates.whatsapp.phone" 
+                                       placeholder="533 001 02 11">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Ön Tanımlı Mesaj</label>
+                                <textarea class="form-control" v-model="qrTemplates.whatsapp.message" rows="3" 
+                                          placeholder="Merhaba, bilgi almak istiyorum..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="whatsappClear">
+                            <label class="form-check-label" for="whatsappClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-success" @click="addQRTemplate('whatsapp')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GTIN/UDI QR Modal -->
+        <div class="modal fade" ref="gtinModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">💉 Sağlık GTIN/UDI QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">GTIN / UDI-DI *</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.gtin.gtin" 
+                                       placeholder="08680123456789" ref="gtinInputEl" maxlength="30">
+                                <small class="text-muted">Ürün tanımlama numarası. Zorunlu alandır.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Üretim Tarihi (11)</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.gtin.mfgDate">
+                                <small class="text-muted">Format: YYMMDD (otomatik dönüşecek)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Son Kullanma Tarihi (17)</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.gtin.expDate">
+                                <small class="text-muted">Format: YYMMDD (otomatik dönüşecek)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Lot / Parti No (10)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.gtin.lotNo" 
+                                       placeholder="LOT123" maxlength="20">
+                                <small class="text-muted">İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Seri No (21)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.gtin.serialNo" 
+                                       placeholder="SN456" maxlength="20">
+                                <small class="text-muted">İsteğe bağlı</small>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-info mb-0">
+                                    <strong>ℹ️ Format Bilgisi:</strong><br>
+                                    <code class="d-block mt-2 p-2 bg-light text-dark">(01){{ qrTemplates.gtin.gtin }}<span v-if="qrTemplates.gtin.mfgDate">(11){{ formatDateToYYMMDD(qrTemplates.gtin.mfgDate) }}</span><span v-if="qrTemplates.gtin.expDate">(17){{ formatDateToYYMMDD(qrTemplates.gtin.expDate) }}</span><span v-if="qrTemplates.gtin.lotNo">(10){{ qrTemplates.gtin.lotNo }}</span><span v-if="qrTemplates.gtin.serialNo">(21){{ qrTemplates.gtin.serialNo }}</span></code>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="gtinClear">
+                            <label class="form-check-label" for="gtinClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-danger" @click="addQRTemplate('gtin')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Food/Gıda QR Modal -->
+        <div class="modal fade" ref="foodModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">🍔 Gıda Sektörü GS1 QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">GTIN / Ürün Kodu (01) *</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.food.gtin" 
+                                       placeholder="5901234123457" ref="foodGtinInputEl" maxlength="30">
+                                <small class="text-muted">Ürün tanımlama numarası. Zorunlu alandır.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Lot / Parti No (10)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.food.lotNo" 
+                                       placeholder="LOT123" maxlength="20">
+                                <small class="text-muted">İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tavsiye Edilen Tüketim Tarihi (15)</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.food.bestBeforeDate">
+                                <small class="text-muted">Format: YYMMDD (otomatik dönüşecek)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Son Tüketim Tarihi (17)</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.food.expiryDate">
+                                <small class="text-muted">Format: YYMMDD (otomatik dönüşecek)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Net Ağırlık / Miktar</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control font-monospace" v-model="qrTemplates.food.weight" 
+                                           placeholder="12.34" step="0.01" min="0">
+                                    <span class="input-group-text">kg</span>
+                                </div>
+                                <small class="text-muted">İsteğe bağlı. Otomatik AI (3100-3104) seçecek</small>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-info mb-0">
+                                    <strong>ℹ️ Format Bilgisi:</strong><br>
+                                    <code class="d-block mt-2 p-2 bg-light text-dark">(01){{ qrTemplates.food.gtin }}<span v-if="qrTemplates.food.lotNo">(10){{ qrTemplates.food.lotNo }}</span><span v-if="qrTemplates.food.bestBeforeDate">(15){{ formatDateToYYMMDD(qrTemplates.food.bestBeforeDate) }}</span><span v-if="qrTemplates.food.expiryDate">(17){{ formatDateToYYMMDD(qrTemplates.food.expiryDate) }}</span><span v-if="qrTemplates.food.weight">({{ selectedFoodAI }}){{ formatWeightForGS1(qrTemplates.food.weight) }}</span></code>
+                                </div>
+                                <small class="text-muted mt-2 d-block">
+                                    📚 GS1 AI Referansı: <a href="https://ref.gs1.org/ai/" target="_blank" rel="noopener">https://ref.gs1.org/ai/</a>
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="foodClear">
+                            <label class="form-check-label" for="foodClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-success" @click="addQRTemplate('food')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logistics/Lojistik QR Modal -->
+        <div class="modal fade" ref="logisticsModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title">🚚 Lojistik / Depo GS1-128 Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">SSCC (Sevkiyat Numarası) (00) *</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.logistics.sscc" 
+                                       placeholder="376123456789012345" ref="logisticsSsccInputEl" maxlength="20">
+                                <small class="text-muted">Koli/Palet numarası. 18 hane. Zorunlu alandır.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Adet (37)</label>
+                                <input type="number" class="form-control font-monospace" v-model="qrTemplates.logistics.quantity" 
+                                       placeholder="100" min="0" maxlength="10">
+                                <small class="text-muted">İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Lot / Parti (10)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.logistics.lotNo" 
+                                       placeholder="LOT123" maxlength="20">
+                                <small class="text-muted">İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tavsiye Edilen Tüketim (15)</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.logistics.bestBeforeDate">
+                                <small class="text-muted">Format: YYMMDD (otomatik)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Son Tüketim Tarihi (17)</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.logistics.expiryDate">
+                                <small class="text-muted">Format: YYMMDD (otomatik)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Teslimat GLN (410)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.logistics.deliveryGLN" 
+                                       placeholder="1234567890123" maxlength="13">
+                                <small class="text-muted">13 hane GLN kodu. İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fiziksel Lokasyon GLN (414)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.logistics.locationGLN" 
+                                       placeholder="1234567890123" maxlength="13">
+                                <small class="text-muted">13 hane GLN kodu. İsteğe bağlı</small>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-info mb-0">
+                                    <strong>ℹ️ Format Bilgisi:</strong><br>
+                                    <code class="d-block mt-2 p-2 bg-light text-dark">(00){{ qrTemplates.logistics.sscc }}<span v-if="qrTemplates.logistics.quantity">(37){{ qrTemplates.logistics.quantity }}</span><span v-if="qrTemplates.logistics.lotNo">(10){{ qrTemplates.logistics.lotNo }}</span><span v-if="qrTemplates.logistics.bestBeforeDate">(15){{ formatDateToYYMMDD(qrTemplates.logistics.bestBeforeDate) }}</span><span v-if="qrTemplates.logistics.expiryDate">(17){{ formatDateToYYMMDD(qrTemplates.logistics.expiryDate) }}</span><span v-if="qrTemplates.logistics.deliveryGLN">(410){{ qrTemplates.logistics.deliveryGLN }}</span><span v-if="qrTemplates.logistics.locationGLN">(414){{ qrTemplates.logistics.locationGLN }}</span></code>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="logisticsClear">
+                            <label class="form-check-label" for="logisticsClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-info" @click="addQRTemplate('logistics')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agriculture/Tarım QR Modal -->
+        <div class="modal fade" ref="agricultureModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title">🥬 Tarım / Yaş Meyve-Sebze GS1 QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">GTIN (01) *</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.agriculture.gtin" 
+                                       placeholder="5412345678901" ref="agricultureGtinInputEl" maxlength="30">
+                                <small class="text-muted">Ürün tanımlama numarası. Zorunlu alandır.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Parti / Batch (10)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.agriculture.lotNo" 
+                                       placeholder="BATCH123" maxlength="20">
+                                <small class="text-muted">İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Paketleme Tarihi (13)</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.agriculture.packingDate">
+                                <small class="text-muted">Format: YYMMDD (otomatik)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tavsiye Tüketim (15)</label>
+                                <input type="date" class="form-control" v-model="qrTemplates.agriculture.bestBeforeDate">
+                                <small class="text-muted">Format: YYMMDD (otomatik)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Net Ağırlık</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control font-monospace" v-model="qrTemplates.agriculture.weight" 
+                                           placeholder="12.34" step="0.01" min="0">
+                                    <span class="input-group-text">kg</span>
+                                </div>
+                                <small class="text-muted">Otomatik AI (3100-3104) seçecek</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Menşe Ülke (422) *</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.agriculture.originCountry" 
+                                       placeholder="TR" maxlength="2">
+                                <small class="text-muted">ISO 3166 ülke kodu (TR, IT, ES, vb)</small>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-info mb-0">
+                                    <strong>ℹ️ Format Bilgisi:</strong><br>
+                                    <code class="d-block mt-2 p-2 bg-light text-dark">(01){{ qrTemplates.agriculture.gtin }}<span v-if="qrTemplates.agriculture.lotNo">(10){{ qrTemplates.agriculture.lotNo }}</span><span v-if="qrTemplates.agriculture.packingDate">(13){{ formatDateToYYMMDD(qrTemplates.agriculture.packingDate) }}</span><span v-if="qrTemplates.agriculture.bestBeforeDate">(15){{ formatDateToYYMMDD(qrTemplates.agriculture.bestBeforeDate) }}</span><span v-if="qrTemplates.agriculture.weight">({{ selectedAgricultureAI }}){{ formatWeightForGS1(qrTemplates.agriculture.weight) }}</span><span v-if="qrTemplates.agriculture.originCountry">(422){{ qrTemplates.agriculture.originCountry }}</span></code>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="agricultureClear">
+                            <label class="form-check-label" for="agricultureClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-info" @click="addQRTemplate('agriculture')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Textile/Tekstil QR Modal -->
+        <div class="modal fade" ref="textileModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">👕 Tekstil / Hazır Giyim GS1 QR Oluştur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">GTIN (01) *</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.textile.gtin" 
+                                       placeholder="08680123456789" ref="textileGtinInputEl" maxlength="30">
+                                <small class="text-muted">Ürün tanımlama numarası. Zorunlu alandır.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Seri No (21)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.textile.serialNo" 
+                                       placeholder="SN123456" maxlength="20">
+                                <small class="text-muted">İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Parti No (10)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.textile.lotNo" 
+                                       placeholder="BATCH123" maxlength="20">
+                                <small class="text-muted">İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Ek Ürün Kodu / Renk-Model (240)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.textile.additionalCode" 
+                                       placeholder="MAVI-XL" maxlength="30">
+                                <small class="text-muted">Renk, beden, model vb. İsteğe bağlı</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Müşteri Parça No (241)</label>
+                                <input type="text" class="form-control font-monospace" v-model="qrTemplates.textile.customerPartNo" 
+                                       placeholder="PART-2024" maxlength="30">
+                                <small class="text-muted">Müşteri tarafında tanımlanan kod. İsteğe bağlı</small>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-info mb-0">
+                                    <strong>ℹ️ Format Bilgisi:</strong><br>
+                                    <code class="d-block mt-2 p-2 bg-light text-dark">(01){{ qrTemplates.textile.gtin }}<span v-if="qrTemplates.textile.additionalCode">(240){{ qrTemplates.textile.additionalCode }}</span><span v-if="qrTemplates.textile.serialNo">(21){{ qrTemplates.textile.serialNo }}</span><span v-if="qrTemplates.textile.lotNo">(10){{ qrTemplates.textile.lotNo }}</span><span v-if="qrTemplates.textile.customerPartNo">(241){{ qrTemplates.textile.customerPartNo }}</span></code>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" v-model="clearBeforeAdd" id="textileClear">
+                            <label class="form-check-label" for="textileClear">
+                                Verileri Temizle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('textile')">
+                            ➕ Ekle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- IMEI/GSM Oluşturucu Modal -->
+        <div class="modal fade" ref="imeiModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">📱 IMEI / GSM Oluşturucu</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning" role="alert">
+                            <strong>⚠️ Önemli Uyarı:</strong> Lütfen üretici olmadığınız kod üretmeyin. 
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">TAC (Type Allocation Code) <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" ref="imeiTacInputEl" v-model="qrTemplates.imei.tac" placeholder="12345678" minlength="8" maxlength="8" title="Üretici TAC kodu (8 hane)">
+                                <small class="text-muted">
+                                    IMEI Cihaz üreticisine ait 8 haneli kod, Üreticiyseniz: 
+                                    <a href="https://www.gsmaservices.com/my-services/" target="_blank" class="link-primary link-decoration-none me-3">
+                                        GSMA TAC Kayıt
+                                    </a>
+                                    <a href="https://www.turkiye.gov.tr/btk-imei-kaydet" target="_blank" class="link-primary link-decoration-none">
+                                         Türkiye BTK IMEI Kayıt
+                                    </a>
+                                </small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Başlangıç Numarası</label>
+                                <input type="number" class="form-control" v-model.number="qrTemplates.imei.startNum" placeholder="Kaçtan başlayacak? Örnek: 100">
+                                <small class="text-muted">İlk IMEI numarası</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Bitiş Numarası</label>
+                                <input type="number" class="form-control" v-model.number="qrTemplates.imei.endNum" placeholder="Kaçta bitecek? Örnek: 150">
+                                <small class="text-muted">Son IMEI numarası</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Artış Miktarı</label>
+                                <input type="number" class="form-control" v-model.number="qrTemplates.imei.increment" placeholder="1" min="1" value="1">
+                                <small class="text-muted">Her adımda artan miktar</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Toplam Hane Sayısı</label>
+                                <input type="number" class="form-control" v-model.number="qrTemplates.imei.haneSayisi" placeholder="15" min="14" max="16">
+                                <small class="text-muted" style="font-size:70%">IMEI için: 15, GS1 SSCC (lojistik koli numarası) için: 18, ISBN-13 için 13 hane</small>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <strong>ℹ️ Oluşturulacak IMEI Sayısı:</strong>
+                                        <span class="badge bg-primary">{{ qrTemplates.imei.imeiCount }}</span>
+                                        <br><small class="text-muted mt-2 d-block">{{ qrTemplates.imei.startNum }} - {{ qrTemplates.imei.endNum }} (Artış: {{ qrTemplates.imei.increment }})</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ İptal
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="addQRTemplate('imei')" :disabled="!qrTemplates.imei.tac || qrTemplates.imei.tac.length < 1 || qrTemplates.imei.tac.length > 8">
+                            ➕ IMEI Kodları Oluştur
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Template Modal -->
+        <div class="modal fade" ref="saveTemplateModalEl" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">💾 Şablon Kaydet</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Şablon Adı *</label>
+                            <input type="text" class="form-control" v-model="templateName" 
+                                   placeholder="Örn: Stok Barkodları, Ürün QR Kodları..." ref="templateNameInputEl">
+                        </div>
+                        <div class="alert alert-info mb-0">
+                            🔃 Barkod tipi, export ayarları ve girdiğiniz veriler kaydedilecektir.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" @click="saveTemplate">
+                            ✅ Kaydet
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Settings Modal -->
+        <div class="modal fade" ref="pageSettingsModalEl" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title">📄 Sayfa Ayarları</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Sayfa Türü</label>
+                                <select class="form-select" v-model="pageSettings.pageType">
+                                    <option value="A4">A4 (210 x 297 mm)</option>
+                                    <option value="Letter">Letter (216 x 279 mm)</option>
+                                    <option value="Custom">Özel Boyut</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3" v-show="pageSettings.pageType === 'Custom'">
+                                <label class="form-label">Genişlik</label>
+                                <input type="text" class="form-control" v-model="pageSettings.width" 
+                                       placeholder="210mm">
+                                <small class="text-muted">Örn: 210mm, 8.5in</small>
+                            </div>
+                            <div class="col-md-3" v-show="pageSettings.pageType === 'Custom'">
+                                <label class="form-label">Yükseklik</label>
+                                <input type="text" class="form-control" v-model="pageSettings.height" 
+                                       placeholder="297mm">
+                                <small class="text-muted">Örn: 297mm, 11in</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Üst/Alt Kenar Boşluğu (Margin Top/Bottom)</label>
+                                <input type="text" class="form-control" v-model="pageSettings.marginTop" 
+                                       placeholder="0cm">
+                                <small class="text-muted">Örn: 0.5cm, 10mm, 0.2in</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Sol/Sağ Kenar Boşluğu (Margin Left/Right)</label>
+                                <input type="text" class="form-control" v-model="pageSettings.marginLeft" 
+                                       placeholder="0cm">
+                                <small class="text-muted">Örn: 0.5cm, 10mm, 0.2in</small>
+                            </div>
+                        </div>
+                        <div class="alert alert-warning mt-3 mb-0">
+                            ⚠️ 
+                            <strong>Not:</strong> Bu ayarlar CSS @page kuralı ile uygulanır. 
+                            Tarayıcınız ve yazıcınız bu ayarları desteklemelidir.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ❌ Kapat
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div class="toast" ref="toastEl" role="alert">
+                <div class="toast-header" :class="'bg-' + toastType + ' text-white'">
+                    <strong class="me-auto ms-2" :class="toastIcon">{{ toastTitle }}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    {{ toastMessage }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Default Barcode Data -->
+    <script>
+        // Başlangıç barkod verileri
+        const varsayilanBarkodlar = `869000000000
+8690000000005
+869000000001
+869000000002
+        `;
+        
+        // QR Code için örnek (istenirse değiştirilebilir)
+        // const varsayilanBarkodlar = `-----QR-----
+// https://qportal.com.tr
+// -----QR-----
+// https://37bilisim.com`;
+    </script>
+
+    <!-- Vue 3 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.5.22/vue.global.min.js"></script>
+    
+    <!-- Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JsBarcode -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    
+    <!-- QRCode -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <!-- JSZip -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    
+    <!-- FileSaver -->
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    
+    <!-- html-to-image -->
+    <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+
+    <!-- Custom Script -->
+    <script src="script.js"></script>
+</body>
+</html>

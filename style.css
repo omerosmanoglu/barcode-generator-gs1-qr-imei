@@ -1,0 +1,376 @@
+/* Barkod Oluşturucu - Styles */
+
+[v-cloak] { 
+    display: none; 
+}
+
+* {
+    vertical-align: top;
+}
+
+body {
+    min-height: 100vh;
+    transition: background-color 0.3s;
+}
+
+.barcode-preview {
+    min-height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bs-secondary-bg);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.barcode-item {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+[data-bs-theme="dark"] .barcode-item {
+    background: var(--bs-dark);
+}
+
+.barcode-item canvas,
+.barcode-item svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+
+.form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.btn-action {
+    min-width: 150px;
+}
+
+.textarea-counter {
+    font-size: 0.875rem;
+    color: var(--bs-secondary-color);
+}
+
+#qrPreview {
+    display: inline-block;
+}
+
+/* Modal customizations */
+.modal-xl-custom {
+    max-width: 95%;
+}
+
+.barcode-grid {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+/* Sticky preview card */
+.sticky-preview {
+    position: sticky;
+    top: 80px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+    .sticky-preview {
+        position: relative;
+        top: 0;
+    }
+}
+
+/* Card shadows */
+.card {
+    transition: box-shadow 0.3s;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}
+
+/* Button hover effects */
+.btn {
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+/* Range slider styling */
+.form-range {
+    cursor: pointer;
+}
+
+.form-range::-webkit-slider-thumb {
+    cursor: pointer;
+}
+
+.form-range::-moz-range-thumb {
+    cursor: pointer;
+}
+
+/* Switch styling */
+.form-check-input:checked {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+/* Custom purple header for QR Templates */
+.bg-purple {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+/* QR Template button grid */
+.btn-outline-primary {
+    transition: all 0.3s;
+}
+
+.btn-outline-primary:hover {
+    transform: scale(1.05);
+}
+
+/* Modal improvements */
+.modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Barcode display text styling */
+.barcode-item small {
+    font-size: 0.875rem;
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+
+
+/* Print Styles */
+@media print {
+    /* Page settings - minimal margins */
+    @page {
+        margin:0cm;
+        padding: 0 !important;
+        size: auto;
+    }
+    
+    /* Reset body and html */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    
+    /* Reset app container */
+    #app {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Hide everything except barcode grid */
+    body > *:not(#app) {
+        display: none !important;
+    }
+    
+    #app > *:not(.modal) {
+        display: none !important;
+    }
+    
+    .navbar,
+    .modal-header,
+    .modal-footer,
+    .modal-backdrop,
+    .toast-container {
+        display: none !important;
+    }
+    
+    /* Reset modal positioning for print */
+    .modal {
+        position: static !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .modal-dialog {
+        position: static !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    .modal-content {
+        border: none !important;
+        box-shadow: none !important;
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+
+    }
+    
+    .modal-body {
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+        position: relative !important;
+    }
+    
+    .modal-body::before {
+        display: none !important;
+    }
+    
+    /* Barcode grid */
+    #barcode-grid {
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        display: block !important;
+        transform: translateY(0) !important;
+        top: 0 !important;
+    }
+    
+    /* Remove all Bootstrap utility spacing */
+    #barcode-grid *,
+    #barcode-grid .text-center,
+    #barcode-grid .d-block,
+    #barcode-grid .text-muted {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    /* Grid layout for print - Dynamic columns */
+    #barcode-grid .row {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        clear: both !important;
+        gap: 0 !important;
+        /* Remove Bootstrap .g-3 gap */
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    #barcode-grid .row::after {
+        content: "" !important;
+        display: table !important;
+        clear: both !important;
+    }
+    
+    /* Column styling - Use float instead of flex for Firefox compatibility */
+    #barcode-grid .col {
+        float: left !important;
+        padding: 2px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+    }
+    
+    /* First row of columns - absolutely no top spacing */
+    #barcode-grid .row > .col:nth-child(-n+12) {
+        margin-top: 0 !important;
+        padding-top: 2px !important;
+    }
+    
+    /* First element - critical for top alignment */
+    #barcode-grid > .row {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    #barcode-grid .row > *:first-child {
+        margin-top: 0 !important;
+        padding-top: 2px !important;
+    }
+    
+    #barcode-grid .row-cols-1 > .col { width: 100% !important; }
+    #barcode-grid .row-cols-2 > .col { width: 50% !important; }
+    #barcode-grid .row-cols-3 > .col { width: 33.333333% !important; }
+    #barcode-grid .row-cols-4 > .col { width: 25% !important; }
+    #barcode-grid .row-cols-5 > .col { width: 20% !important; }
+    #barcode-grid .row-cols-6 > .col { width: 16.666667% !important; }
+    #barcode-grid .row-cols-7 > .col { width: 14.285714% !important; }
+    #barcode-grid .row-cols-8 > .col { width: 12.5% !important; }
+    #barcode-grid .row-cols-9 > .col { width: 11.111111% !important; }
+    #barcode-grid .row-cols-10 > .col { width: 10% !important; }
+    #barcode-grid .row-cols-11 > .col { width: 9.090909% !important; }
+    #barcode-grid .row-cols-12 > .col { width: 8.333333% !important; }
+    
+    /* Optimize barcode items for print */
+    #barcode-grid .barcode-item {
+        background: white !important;
+        padding: 0px !important;
+        border-radius: 0px !important;
+        margin-bottom: 0px !important;
+        box-shadow: none !important;
+    }
+    
+
+    /* Remove Bootstrap margin classes */
+    #barcode-grid .mb-2,
+    #barcode-grid .barcode-item > div {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    #barcode-grid .barcode-item canvas,
+    #barcode-grid .barcode-item svg {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto !important;
+    }
+    
+
+    /* Page break separator - force new page */
+    .print-page-break {
+        display: block !important;
+        width: 100% !important;
+        clear: both !important;
+        background-color:black !important;
+        page-break-before: always !important;
+        break-before: always !important;        
+        height: 0px !important;
+    }
+  
+}
+
+@media only screen {
+  .print-page-break {
+        display: block !important;
+        width: 100% !important;
+        clear: both !important;
+        border-top: 3px dashed #666 !important;
+        height: 1px !important;
+  }
+}

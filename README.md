@@ -180,10 +180,10 @@ MIT License
 ## 📜 TODO
 	
 [•] Klavuzlar
-	[•] GS1 Code: https://ref.gs1.org/ai/
-    [•] IMEI: https://www.gsmaservices.com/my-services/  | https://www.turkiye.gov.tr/btk-imei-kaydet
-    [•] GTIN - UDI: - https://utsuygulama.saglik.gov.tr/UTS/vatandas#/vatTibbiCihazListele
+* GS1 Code: https://ref.gs1.org/ai/
+* IMEI: https://www.gsmaservices.com/my-services/  | https://www.turkiye.gov.tr/btk-imei-kaydet
+* GTIN - UDI: - https://utsuygulama.saglik.gov.tr/UTS/vatandas#/vatTibbiCihazListele
 
 [•] Eklenecekler
-	- 2 etiket arasında boşluk için etiket arasına tag koy
-	- Etiket yükselik ve genişlik girebilsin
+* 2 etiket arasında boşluk için etiket arasına tag koy
+* Etiket yükselik ve genişlik girebilsin
